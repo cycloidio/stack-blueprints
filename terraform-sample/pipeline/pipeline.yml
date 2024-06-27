@@ -101,7 +101,7 @@ resources:
     username: ((($ .cr_cred_path $).username))
     password: ((($ .cr_cred_path $).password))
     ($- end $)
-    ($- if eq .scs_cred_type "ssh" $)
+    ($- if eq .cr_cred_type "ssh" $)
     private_key: ((($ .cr_cred_path $).ssh_key))
     ($- end $)
     # Include only the Terraform files in the specified directory.
