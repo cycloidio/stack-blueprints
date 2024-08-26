@@ -1,9 +1,9 @@
-module "myapp" {
+module "example" {
   source = "./module-sample"
 
+  # Vars automatically defined in provider.tf for best practices.
+  # They are usually used to tag cloud resources with Cycloid information
   env                = var.env
   project            = var.project
   organization       = var.organization
-
-  instance_type = "Filled by stackforms"
 }

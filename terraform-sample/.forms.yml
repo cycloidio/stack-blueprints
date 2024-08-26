@@ -69,15 +69,15 @@ use_cases:
       ($>- end <$)
     ($>- end <$)
 
-  - name: Application
+  - name: Terraform variable example
     groups:
     - name: Configuration
       technologies: [terraform]
       vars:
-      - name: "Instance type"
-        description: "Specify the size of the instance"
-        key: module.myapp.instance_type
+      - name: "Tshirt size"
+        description: "This is a **Terraform variable example**"
+        key: module.example.tshirt_size # Module name should match the Terraform module name specified in main.tf.sample
         type: string
         widget: auto_complete
-        values: ["micro", "small", "medium", "large"]
-        default: "medium"
+        values: ["S", "M", "L", "XXL"]
+        default: "M"
