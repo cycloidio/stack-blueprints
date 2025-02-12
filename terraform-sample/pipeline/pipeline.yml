@@ -24,7 +24,7 @@ definitions:
           - name: merged-stack
             path: "merged-stack"
       params:
-        CONFIG_PATH: ($ .project $)/terraform/($ .environment $)
+        CONFIG_PATH: ($ .config_root $)/terraform
         STACK_PATH: ($ .stack_path $)/terraform
 
 # Declare Concourse resource types to determine versions and sources to use in the pipeline.
@@ -34,7 +34,7 @@ resource_types:
   type: registry-image
   source:
     repository: cycloid/terraform-resource
-    tag: '1.8.2'
+    tag: '1.11.4'
 
 # Declare resources to be invoked later in jobs.
 resources:
@@ -53,7 +53,8 @@ resources:
     vars:
       env: ($ .environment $)
       project: ($ .project $)
-      organization: ($ .organization_canonical $)
+      organization: ($ .organization $)
+      component: ($ .component $)
       ($>- if eq .stack_usecase "aws" <$)
       aws_cred: ((aws_cred))
       aws_region: ((aws_default_region))
@@ -75,16 +76,16 @@ resources:
   type: git
   icon: github-circle
   source:
-    uri: ($ .scs_url $)
-    branch: ($ .scs_branch $)
+    uri: ($ .catalog_repository_url $)
+    branch: ($ .catalog_repository_branch $)
     # Stack templating examples:
     # https://docs.cycloid.io/reference/stack/concepts/templating/
-    ($- if eq .scs_cred_type "basic_auth" $)
-    username: ((($ .scs_cred_path $).username))
-    password: ((($ .scs_cred_path $).password))
+    ($- if eq .catalog_repository_credential_type "basic_auth" $)
+    username: ((($ .catalog_repository_credential_path $).username))
+    password: ((($ .catalog_repository_credential_path $).password))
     ($- end $)
-    ($- if eq .scs_cred_type "ssh" $)
-    private_key: ((($ .scs_cred_path $).ssh_key))
+    ($- if eq .catalog_repository_credential_type "ssh" $)
+    private_key: ((($ .catalog_repository_credential_path $).ssh_key))
     ($- end $)
     # Include only the Terraform files in the specified directory.
     paths:
@@ -95,18 +96,18 @@ resources:
   type: git
   icon: github-circle
   source:
-    uri: ($ .cr_url $)
-    branch: ($ .cr_branch $)
-    ($- if eq .cr_cred_type "basic_auth" $)
-    username: ((($ .cr_cred_path $).username))
-    password: ((($ .cr_cred_path $).password))
+    uri: ($ .config_repository_url $)
+    branch: ($ .config_repository_branch $)
+    ($- if eq .config_repository_credential_type "basic_auth" $)
+    username: ((($ .config_repository_credential_path $).username))
+    password: ((($ .config_repository_credential_path $).password))
     ($- end $)
-    ($- if eq .cr_cred_type "ssh" $)
-    private_key: ((($ .cr_cred_path $).ssh_key))
+    ($- if eq .config_repository_credential_type "ssh" $)
+    private_key: ((($ .config_repository_credential_path $).ssh_key))
     ($- end $)
     # Include only the Terraform files in the specified directory.
     paths:
-      - ($ .project $)/terraform/($ .environment $)/*
+      - ($ .config_root $)/terraform/*
 
 # Define jobs that form the pipeline
 jobs:

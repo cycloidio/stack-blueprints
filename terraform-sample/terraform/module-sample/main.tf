@@ -3,7 +3,7 @@
 
 resource "null_resource" "example" {
   triggers = {
-    name = "${var.organization}-${var.project}-${var.env}"
+    name = "${var.organization}-${var.project}-${var.env}-${var.component}"
     type = var.tshirt_size
   }
 }

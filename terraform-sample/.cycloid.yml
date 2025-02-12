@@ -1,5 +1,4 @@
-# Use the latest version 3 of the Cycloid stack engine.
-version: '3'
+version: '4'
 
 name: Terraform
 canonical: terraform-sample
@@ -14,7 +13,6 @@ technologies:
   - technology: terraform
     version: 1.8.2
 template: true
-status: 'public'
 
 # Add use cases to the stack.
 # See: https://docs.cycloid.io/manage/pipeline/multi-use-case.html#multiple-use-case
@@ -28,11 +26,11 @@ config:
         path: 'pipeline/pipeline.yml'
       variables:
         path: 'pipeline/variables.sample.yml'
-        destination: '($ .project $)/pipeline/variables-($ .environment $).yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
     terraform:
       main:
         path: 'terraform/main.tf.sample'
-        destination: '($ .project $)/terraform/($ .environment $)/main.tf'
+        destination: '($ .config_root $)/terraform/main.tf'
 
   azure:
     name: 'Azure'
@@ -43,11 +41,11 @@ config:
         path: 'pipeline/pipeline.yml'
       variables:
         path: 'pipeline/variables.sample.yml'
-        destination: '($ .project $)/pipeline/variables-($ .environment $).yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
     terraform:
       main:
         path: 'terraform/main.tf.sample'
-        destination: '($ .project $)/terraform/($ .environment $)/main.tf'
+        destination: '($ .config_root $)/terraform/main.tf'
 
   gcp:
     name: 'GCP'
@@ -58,11 +56,11 @@ config:
         path: 'pipeline/pipeline.yml'
       variables:
         path: 'pipeline/variables.sample.yml'
-        destination: '($ .project $)/pipeline/variables-($ .environment $).yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
     terraform:
       main:
         path: 'terraform/main.tf.sample'
-        destination: '($ .project $)/terraform/($ .environment $)/main.tf'
+        destination: '($ .config_root $)/terraform/main.tf'
 
   vanilla:
     name: 'Basic Terraform'
@@ -72,8 +70,8 @@ config:
         path: 'pipeline/pipeline.yml'
       variables:
         path: 'pipeline/variables.sample.yml'
-        destination: '($ .project $)/pipeline/variables-($ .environment $).yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
     terraform:
       main:
         path: 'terraform/main.tf.sample'
-        destination: '($ .project $)/terraform/($ .environment $)/main.tf'
+        destination: '($ .config_root $)/terraform/main.tf'
