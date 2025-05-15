@@ -31,7 +31,7 @@ use_cases:
         key: gcp_project
         type: string
         widget: simple_text
-        default: cycloid-demo
+        default: ($ .project $)
       - name: "GCP zone"
         key: gcp_zone
         type: string

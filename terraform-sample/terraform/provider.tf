@@ -1,6 +1,7 @@
 variable "organization" {}
 variable "project" {}
 variable "env" {}
+variable "component" {}
 
 ($> if eq .stack_usecase "aws" -<$)
 # Terraform Amazon Web Services provider configuration
@@ -13,6 +14,7 @@ provider "aws" {
   default_tags { # The default_tags block applies tags to all resources managed by this provider, except for the Auto Scaling groups (ASG).
     tags = {
       "cycloid.io" = "true"
+      component    = var.component
       env          = var.env
       project      = var.project
       organization = var.organization
