@@ -4,7 +4,7 @@ name: Terraform
 canonical: terraform-sample
 author: '($> .stack_author <$)'
 # Fill in the stack details.
-description: 'Discover how to integrate Terraform in your pipelines.'
+description: 'This stack contains automation to run Terraform code and manage infrastructure as code.'
 image: https://raw.githubusercontent.com/cycloidio/bootstrap-stacks/master/terraform-sample/thumbnail.png
 keywords:
   - 'terraform'
