@@ -77,7 +77,13 @@ resources:
   icon: github-circle
   source:
     uri: ($ .catalog_repository_url $)
-    branch: ($ .catalog_repository_branch $)
+    ($- if eq .stack_version_type "branch" $)
+    branch: ($ .stack_version_ref $)
+    ($- end $) 
+    ($- if eq .stack_version_type "tag" $)
+    tag_filter: ($ .stack_version_ref $)
+    fetch_tags: true
+    ($- end $) 
     # Stack templating examples:
     # https://docs.cycloid.io/reference/stack/concepts/templating/
     ($- if eq .catalog_repository_credential_type "basic_auth" $)
