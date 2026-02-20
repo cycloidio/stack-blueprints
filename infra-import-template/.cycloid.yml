@@ -1,0 +1,50 @@
+---
+version: '4'
+name: 'default'
+canonical: 'default'
+description:
+keywords:
+author: 'Cycloid'
+image:
+template: true
+config:
+  aws:
+    name: 'AWS'
+    description: 'Manage Amazon Web Services (aws) resources.'
+    cloud_provider: aws
+    pipeline:
+      pipeline:
+        path: "pipeline/default/pipeline.yml"
+      variables:
+        path: "pipeline/default/variables.sample.yml"
+        destination: "($ .config_root $)/pipeline/variables.yml"
+  gcp:
+    name: 'GCP'
+    description: 'Manage Google Cloud Platform (google) resources.'
+    cloud_provider: google
+    pipeline:
+      pipeline:
+        path: "pipeline/default/pipeline.yml"
+      variables:
+        path: "pipeline/default/variables.sample.yml"
+        destination: "($ .config_root $)/pipeline/variables.yml"
+  azure:
+    name: 'Azure'
+    description: 'Manage Azure (azurerm) resources.'
+    cloud_provider: azurerm
+    pipeline:
+      pipeline:
+        path: "pipeline/default/pipeline.yml"
+      variables:
+        path: "pipeline/default/variables.sample.yml"
+        destination: "($ .config_root $)/pipeline/variables.yml"
+  vsphere: # Used by vSphere
+    name: 'vSphere'
+    description: 'Manage VMware vSphere (vsphere) resources.'
+    cloud_provider: vsphere
+    pipeline:
+      pipeline:
+        path: "pipeline/vsphere/pipeline.yml"
+      variables:
+        path: "pipeline/vsphere/variables.sample.yml"
+        destination: "($ .config_root $)/pipeline/variables.yml"
