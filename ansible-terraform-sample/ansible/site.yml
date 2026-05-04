@@ -1,0 +1,30 @@
+---
+
+{% if stack_usecase == "aws" or stack_usecase == "azure" %}
+# Use dynamic inventory and filter instances using Tags
+# Select the instances matching Cycloid project and environment tag name.
+- hosts: {% raw %}tag_project_{{project}}:&tag_env_{{ env }}{% endraw %}
+{% elif stack_usecase == "gcp" %}
+# Use dynamic inventory and filter instances using Labels
+# Select the instances matching Cycloid project and environment label name.
+- hosts: {% raw %}label_project_{{project}}:&label_env_{{ env }}{% endraw %}
+{% elif stack_usecase == "raw" %}
+- hosts: all
+{% endif %}
+
+{% raw %}
+  vars_files:
+    - "environments/default_variables.yml"
+    - [ "environments/{{ env }}-variables.yml", "environments/empty.yml" ]
+
+  tasks:
+    - name: Print the message
+      ansible.builtin.debug:
+        msg: "{{ message_content }}"
+
+    # Terraform outputs are automatically sent as variable to Ansible due to Cycloid scripts
+    - name: Display a variable from Terraform outputs
+      ansible.builtin.debug:
+        msg: "instance_id from Terraform output - {{ instance_id }}"
+
+{% endraw %}
