@@ -1,18 +1,16 @@
 ---
-
-{% if stack_usecase == "aws" or stack_usecase == "azure" %}
-# Use dynamic inventory and filter instances using Tags
-# Select the instances matching Cycloid project and environment tag name.
-- hosts: {% raw %}tag_project_{{project}}:&tag_env_{{ env }}{% endraw %}
-{% elif stack_usecase == "gcp" %}
-# Use dynamic inventory and filter instances using Labels
-# Select the instances matching Cycloid project and environment label name.
-- hosts: {% raw %}label_project_{{project}}:&label_env_{{ env }}{% endraw %}
-{% elif stack_usecase == "raw" %}
+($>- if or (eq .stack_usecase "aws") (eq .stack_usecase "azure") (eq .stack_usecase "gcp") <$)
+# Use the cloud dynamic inventory provided by the Cycloid ansible-runner.
+# Instances are auto-grouped as tag_<key>_<value> based on their tags
+# (or labels for GCP, but the prefix stays "tag" — see cycloid-toolkit
+# files/ansible/etc/hosts-template). Here we select instances matching
+# both the project and env tags injected by Cycloid.
+- hosts: tag_project_{{ project }}:&tag_env_{{ env }}
+($>- else <$)
+# Vanilla use case: no cloud provider, run locally on the worker.
 - hosts: all
-{% endif %}
+($>- end <$)
 
-{% raw %}
   vars_files:
     - "environments/default_variables.yml"
     - [ "environments/{{ env }}-variables.yml", "environments/empty.yml" ]
@@ -22,9 +20,8 @@
       ansible.builtin.debug:
         msg: "{{ message_content }}"
 
-    # Terraform outputs are automatically sent as variable to Ansible due to Cycloid scripts
+    # Terraform outputs are automatically passed as Ansible variables by the
+    # Cycloid ansible-runner when tfstate is given as input to the merge task.
     - name: Display a variable from Terraform outputs
       ansible.builtin.debug:
-        msg: "instance_id from Terraform output - {{ instance_id }}"
-
-{% endraw %}
+        msg: "tshirt_id from Terraform output - {{ tshirt_id | default('') }}"

@@ -1,138 +1,153 @@
-# YAML anchors
-shared:
-  - &merge-stack-and-config
-    platform: linux
-    image_resource:
-      type: docker-image
-      source:
-        repository: cycloid/cycloid-toolkit
-        tag: "v2.9"
-    run:
-      path: /usr/bin/merge-stack-and-config
-    outputs:
-    - name: merged-stack
-      path: "merged-stack"
-
-  - &run-ansible
-    config:
+# Declare YAML anchors to reuse later in the YAML document.
+# This helps reducing bloat in YAML files by removing code duplication.
+# See: https://docs.cycloid.io/deploy/stackforms/advanced.html#yaml-anchors-and-aliases
+definitions:
+  tasks:
+    # Common shell of the merge-stack-and-config task. Each call site spells
+    # out its own `inputs` and `params` (terraform vs ansible) — this keeps
+    # the tfstate input on the Ansible job clearly visible.
+    - &merge-stack-and-config
       platform: linux
       image_resource:
-        type: docker-image
+        type: registry-image
         source:
           repository: cycloid/cycloid-toolkit
-          tag: "v2.9"
-{% if stack_usecase == "raw" %}
+          tag: latest
       run:
-        path: /bin/bash
-        args:
-          - '-exc'
-          - |
-            # Here is a placeholder to create a static inventory file.
-            # In this example we will simply run locally ansible inside the worker.
-            cat > merged-stack/inventory.ini <<EOF
-            [all]
-            localhost ansible_connection=local gather_facts=false
-            EOF
-            export ANSIBLE_INVENTORY=inventory.ini
+        path: /usr/bin/merge-stack-and-config
+      outputs:
+        - name: merged-stack
+          path: "merged-stack"
 
-            # Run ansible
-            /usr/bin/ansible-runner
-{% else %}
-      run:
-        path: /usr/bin/ansible-runner
-{% endif %}
-      caches:
-        - path: ansible-playbook/roles
-      inputs:
-      - name: merged-stack
-        path: merged-stack
-
-groups:
-- name: overview
-  jobs:
-  - terraform-plan
-  - terraform-apply
-  - ansible-run
-- name: destroy
-  jobs:
-  - terraform-destroy
-
+# Declare Concourse resource types to determine versions and sources to use in the pipeline.
+# See: https://concourse-ci.org/resource-types.html
 resource_types:
 - name: terraform
-  type: docker-image
+  type: registry-image
   source:
     repository: cycloid/terraform-resource
-    tag: '1.3.9'
+    tag: '1.11.4'
 
+# Declare resources to be invoked later in jobs.
 resources:
+# The Terraform Concourse resource to manage infrastructure via Terraform.
+# See: https://github.com/cycloidio/terraform-resource#source-configuration
 - name: tfstate
   type: terraform
   icon: terraform
   source:
-    env_name: ((env))
+    # Use Cycloid Terraform HTTP backend.
     backend_type: http
     backend_config:
-      address: '((cycloid_api_url))/inventory?jwt=($ inventory_jwt $)'
+      address: '($ .api_url $)/inventory?jwt=($ .inventory_jwt $)'
       skip_cert_verification: true
+    env_name: ($ .environment $)
     vars:
-{% if stack_usecase == "aws" %}
+      env: ($ .environment $)
+      project: ($ .project $)
+      organization: ($ .organization $)
+      component: ($ .component $)
+      ($>- if eq .stack_usecase "aws" <$)
       aws_cred: ((aws_cred))
       aws_region: ((aws_default_region))
-{% elif stack_usecase == "gcp" %}
+      ($>- else if eq .stack_usecase "gcp" <$)
       gcp_project: ((gcp_project))
       gcp_zone: ((gcp_zone))
-{% elif stack_usecase == "azure" %}
+      ($>- else if eq .stack_usecase  "azure" <$)
       azure_env: ((azure_env))
       azure_cred: ((azure_cred))
-{% endif %}
-      env: ((env))
-      project: ((project))
-      organization: ((org))
-
-{% if stack_usecase == "gcp" %}
+      ($>- end <$)
+    ($>- if eq .stack_usecase  "gcp" <$)
     env:
       GOOGLE_PROJECT: ((gcp_project))
       GOOGLE_ZONE: ((gcp_zone))
       GOOGLE_CREDENTIALS: ((gcp_credentials_json))
-{% endif %}
+    ($>- end <$)
 
-{% for techno, cfg_path in {"ansible": "((project))/ansible/environments/((env))-*", "terraform": "((project))/terraform/((env))/*"}.items() %}
-# Git stack repositories
-- name: git_stack-{{ techno }}
-  icon: github-circle
-  type: git
-  source:
-    uri: ($ scs_url $)
-    branch: ($ scs_branch $)
-{% if auth_type == "http" %}
-    username: ((stack_git_username))
-    password: ((stack_git_password))
-{% else %}
-    private_key: ((stack_git_private_key))
-{% endif %}
-    paths:
-      - ((stack_path))/{{ techno }}/*
-
-# Git config repositories
-- name: git_config-{{ techno }}
+# The Terraform stack (will be merged with the config).
+- name: git_stack-terraform
   type: git
   icon: github-circle
   source:
-    uri: ($ cr_url $)
-    branch: ($ cr_branch $)
-{% if auth_type == "http" %}
-    username: ((config_git_username))
-    password: ((config_git_password))
-{% else %}
-    private_key: ((config_git_private_key))
-{% endif %}
+    uri: ($ .catalog_repository_url $)
+    ($- if eq .stack_version_type "branch" $)
+    branch: ($ .stack_version_ref $)
+    ($- end $)
+    ($- if eq .stack_version_type "tag" $)
+    tag_filter: ($ .stack_version_ref $)
+    fetch_tags: true
+    ($- end $)
+    # Stack templating examples:
+    # https://docs.cycloid.io/reference/stack/concepts/templating/
+    ($- if eq .catalog_repository_credential_type "basic_auth" $)
+    username: ((($ .catalog_repository_credential_path $).username))
+    password: ((($ .catalog_repository_credential_path $).password))
+    ($- end $)
+    ($- if eq .catalog_repository_credential_type "ssh" $)
+    private_key: ((($ .catalog_repository_credential_path $).ssh_key))
+    ($- end $)
     paths:
-      - {{ cfg_path }}
+      - ($ .stack_path $)/terraform/*
 
-{% endfor %}
+# The Terraform config (will be merged with the stack).
+- name: git_config-terraform
+  type: git
+  icon: github-circle
+  source:
+    uri: ($ .config_repository_url $)
+    branch: ($ .config_repository_branch $)
+    ($- if eq .config_repository_credential_type "basic_auth" $)
+    username: ((($ .config_repository_credential_path $).username))
+    password: ((($ .config_repository_credential_path $).password))
+    ($- end $)
+    ($- if eq .config_repository_credential_type "ssh" $)
+    private_key: ((($ .config_repository_credential_path $).ssh_key))
+    ($- end $)
+    paths:
+      - ($ .config_root $)/terraform/*
 
+# The Ansible stack (will be merged with the config).
+- name: git_stack-ansible
+  type: git
+  icon: github-circle
+  source:
+    uri: ($ .catalog_repository_url $)
+    ($- if eq .stack_version_type "branch" $)
+    branch: ($ .stack_version_ref $)
+    ($- end $)
+    ($- if eq .stack_version_type "tag" $)
+    tag_filter: ($ .stack_version_ref $)
+    fetch_tags: true
+    ($- end $)
+    ($- if eq .catalog_repository_credential_type "basic_auth" $)
+    username: ((($ .catalog_repository_credential_path $).username))
+    password: ((($ .catalog_repository_credential_path $).password))
+    ($- end $)
+    ($- if eq .catalog_repository_credential_type "ssh" $)
+    private_key: ((($ .catalog_repository_credential_path $).ssh_key))
+    ($- end $)
+    paths:
+      - ($ .stack_path $)/ansible/*
+
+# The Ansible config (will be merged with the stack).
+- name: git_config-ansible
+  type: git
+  icon: github-circle
+  source:
+    uri: ($ .config_repository_url $)
+    branch: ($ .config_repository_branch $)
+    ($- if eq .config_repository_credential_type "basic_auth" $)
+    username: ((($ .config_repository_credential_path $).username))
+    password: ((($ .config_repository_credential_path $).password))
+    ($- end $)
+    ($- if eq .config_repository_credential_type "ssh" $)
+    private_key: ((($ .config_repository_credential_path $).ssh_key))
+    ($- end $)
+    paths:
+      - ($ .config_root $)/ansible/*
+
+# Define jobs that form the pipeline
 jobs:
-
   - name: terraform-plan
     serial: true
     serial_groups: [terraform]
@@ -141,24 +156,20 @@ jobs:
     plan:
       - do:
         - get: git_stack-terraform
-          params: {depth: 1}
           trigger: true
         - get: git_config-terraform
-          params: {depth: 1}
           trigger: true
-
         - task: merge-stack-and-config
           config:
             <<: *merge-stack-and-config
             inputs:
-            - name: git_config-terraform
-              path: "config"
-            - name: git_stack-terraform
-              path: "stack"
+              - name: git_config-terraform
+                path: "config"
+              - name: git_stack-terraform
+                path: "stack"
           params:
-            CONFIG_PATH: ((project))/terraform/((env))
-            STACK_PATH: ((stack_path))/terraform
-
+            CONFIG_PATH: ($ .config_root $)/terraform
+            STACK_PATH: ($ .stack_path $)/terraform
         - put: tfstate
           params:
             plan_only: true
@@ -167,7 +178,6 @@ jobs:
   - name: terraform-apply
     serial: true
     serial_groups: [terraform]
-    max_in_flight: 1
     build_logs_to_retain: 10
     plan:
       - do:
@@ -183,120 +193,152 @@ jobs:
           trigger: false
           passed:
             - terraform-plan
-
         - task: merge-stack-and-config
           config:
             <<: *merge-stack-and-config
             inputs:
-            - name: git_config-terraform
-              path: "config"
-            - name: git_stack-terraform
-              path: "stack"
+              - name: git_config-terraform
+                path: "config"
+              - name: git_stack-terraform
+                path: "stack"
           params:
-            CONFIG_PATH: ((project))/terraform/((env))
-            STACK_PATH: ((stack_path))/terraform
-
+            CONFIG_PATH: ($ .config_root $)/terraform
+            STACK_PATH: ($ .stack_path $)/terraform
         - put: tfstate
           params:
             plan_run: true
             terraform_source: merged-stack/
 
   - name: terraform-destroy
-    max_in_flight: 1
+    serial: true
+    serial_groups: [terraform]
     build_logs_to_retain: 10
     plan:
       - do:
-          - get: git_stack-terraform
-            params: {depth: 1}
-            trigger: false
-          - get: git_config-terraform
-            params: {depth: 1}
-            trigger: false
-          - task: merge-stack-and-config
-            config:
-              <<: *merge-stack-and-config
-              inputs:
+        - get: git_stack-terraform
+          trigger: false
+        - get: git_config-terraform
+          trigger: false
+        - task: merge-stack-and-config
+          config:
+            <<: *merge-stack-and-config
+            inputs:
               - name: git_config-terraform
                 path: "config"
               - name: git_stack-terraform
                 path: "stack"
-            params:
-              CONFIG_PATH: ((project))/terraform/((env))
-              STACK_PATH: ((stack_path))/terraform
-
-          - put: tfstate
-            params:
-              action: destroy
-              terraform_source: merged-stack/
-            get_params:
-              action: destroy
+          params:
+            CONFIG_PATH: ($ .config_root $)/terraform
+            STACK_PATH: ($ .stack_path $)/terraform
+        - put: tfstate
+          params:
+            action: destroy
+            terraform_source: merged-stack/
+          get_params:
+            action: destroy
 
   - name: ansible-run
     serial: true
     build_logs_to_retain: 10
     plan:
-    - do:
-      - get: git_stack-ansible
-        params: {depth: 1}
-        trigger: true
+      - do:
+        - get: git_stack-ansible
+          trigger: true
+        - get: git_config-ansible
+          trigger: true
+        - get: tfstate
+          trigger: true
+          passed:
+            - terraform-apply
 
-      - get: git_config-ansible
-        params: {depth: 1}
-        trigger: true
+        - task: merge-stack-and-config
+          config:
+            <<: *merge-stack-and-config
+            inputs:
+              - name: git_config-ansible
+                path: "config"
+              - name: git_stack-ansible
+                path: "stack"
+              # tfstate is passed as input so its outputs are exported as
+              # Ansible variables by the cycloid-toolkit ansible-runner.
+              - name: tfstate
+                path: "terraform"
+          params:
+            CONFIG_PATH: ($ .config_root $)/ansible
+            STACK_PATH: ($ .stack_path $)/ansible
 
-      - get: tfstate
-        passed:
-          - terraform-apply
-        trigger: true
+        - task: run-ansible
+          config:
+            platform: linux
+            image_resource:
+              type: registry-image
+              source:
+                repository: cycloid/cycloid-toolkit
+                tag: latest
+            ($>- if eq .stack_usecase "vanilla" <$)
+            run:
+              path: /bin/bash
+              args:
+                - -ec
+                - |
+                  # Vanilla use case: no cloud provider, run Ansible locally
+                  # against the Concourse worker itself for demonstration.
+                  cat > merged-stack/inventory.ini <<EOF
+                  [all]
+                  localhost ansible_connection=local gather_facts=false
+                  EOF
+                  export ANSIBLE_INVENTORY=inventory.ini
 
-      - task: merge-stack-and-config
-        config:
-          <<: *merge-stack-and-config
-          inputs:
-          - name: git_config-ansible
-            path: "config"
-          - name: git_stack-ansible
-            path: "stack"
-          - name: tfstate
-            path: "terraform"
-        params:
-          CONFIG_PATH: ((project))/ansible/
-          STACK_PATH: ((stack_path))/ansible
+                  /usr/bin/ansible-runner
+            ($>- else <$)
+            run:
+              path: /usr/bin/ansible-runner
+            ($>- end <$)
+            inputs:
+              - name: merged-stack
+                path: ansible-playbook
+            caches:
+              - path: ansible-playbook/roles
+          params:
+            # See ansible-runner doc for more details on the following environment variables
+            # https://github.com/cycloidio/docker-cycloid-toolkit#ansible-runner
+            SSH_PRIVATE_KEY: ((ansible_ssh_private_key_pair))
+            ANSIBLE_PLAYBOOK_PATH: ansible-playbook
+            ANSIBLE_PLAYBOOK_NAME: site.yml
+            ANSIBLE_FORCE_GALAXY: false
+            ANSIBLE_STDOUT_CALLBACK: default
+            ANSIBLE_EXTRA_VARS:
+              organization: ($ .organization $)
+              project: ($ .project $)
+              env: ($ .environment $)
+              component: ($ .component $)
+            ($>- if eq .stack_usecase "aws" <$)
+            # By providing this credential, the Cycloid ansible-runner will
+            # automatically use the AWS dynamic inventory to discover instances
+            # and group them based on AWS tags.
+            # See: https://github.com/cycloidio/docker-cycloid-toolkit#ansible-runner
+            AWS_DEFAULT_REGION: ((aws_default_region))
+            CY_AWS_CRED: ((aws_cred))
+            ($>- else if eq .stack_usecase "gcp" <$)
+            # By providing this credential, the Cycloid ansible-runner will
+            # automatically use the GCP dynamic inventory to discover instances
+            # and group them based on GCP labels.
+            GCP_SERVICE_ACCOUNT_CONTENTS: ((gcp_credentials_json))
+            ($>- else if eq .stack_usecase "azure" <$)
+            # By providing this credential, the Cycloid ansible-runner will
+            # automatically use the Azure dynamic inventory to discover
+            # instances and group them based on Azure tags.
+            CY_AZURE_CRED: ((azure_cred))
+            ($>- end <$)
 
-      - task: run-ansible
-        <<: *run-ansible
-        params:
-          # See ansible-runner doc for more details on the following environment variables
-          # https://github.com/cycloidio/docker-cycloid-toolkit#ansible-runner
-          SSH_PRIVATE_KEY: ((ansible_ssh_private_key_pair))
-          # You can put here the IP address of a Bastion server
-          # SSH_JUMP_URL: 1.2.3.4
-          ANSIBLE_PLAYBOOK_PATH: merged-stack
-          ANSIBLE_PLAYBOOK_NAME: site.yml
-          ANSIBLE_FORCE_GALAXY: false
-          ANSIBLE_STDOUT_CALLBACK: default
-          EXTRA_ANSIBLE_VARS:
-            org: ((org))
-            project: ((project))
-            env: ((env))
-{% if stack_usecase == "aws" %}
-          # By providing those credentials, Cycloid Ansible runner will
-          # Automatically use Amazon dynamic inventory to get instances IP's and
-          # groups based on Aws Tags
-          AWS_DEFAULT_REGION: ((aws_default_region))
-          AWS_ACCESS_KEY_ID: ((aws_access_key))
-          AWS_SECRET_ACCESS_KEY: ((aws_secret_key))
-{% elif stack_usecase == "gcp" %}
-          # By providing those credentials, Cycloid Ansible runner will
-          # Automatically use GCP dynamic inventory to get instances IP's and
-          # groups based on GCP Labels
-          GCP_SERVICE_ACCOUNT_CONTENTS: ((gcp_credentials_json))
-{% elif stack_usecase == "azure" %}
-          # By providing those credentials, Cycloid Ansible runner will
-          # Automatically use Azure dynamic inventory to get instances IP's and
-          # groups based on Azure Labels
-          AZURE_SUBSCRIPTION_ID: Used by Azure dynamic inventory
-          AZURE_TENANT_ID: Used by Azure dynamic inventory
-          AZURE_CLIENT_ID: Used by Azure dynamic inventory
-          AZURE_SECRET: Used by Azure dynamic inventory
-{% endif %}
+# Organize jobs into groups.
+# See: https://concourse-ci.org/pipelines.html#schema.pipeline.groups
+groups:
+- name: overview
+  jobs:
+  - terraform-plan
+  - terraform-apply
+  - ansible-run
+- name: destroy
+  jobs:
+  - terraform-destroy

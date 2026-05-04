@@ -1,15 +1,6 @@
-output "instance_id" {
-  value = module.myapp.instance_id
-}
-
-output "env" {
-  value = module.myapp.env
-}
-
-output "project" {
-  value = module.myapp.project
-}
-
-output "organization" {
-  value = module.myapp.organization
+# Example on how to use Terraform outputs https://developer.hashicorp.com/terraform/language/values/outputs
+# Terraform outputs are automatically passed as variables to the Ansible playbook
+# by the Cycloid ansible-runner (when tfstate is given as input to the merge task).
+output "tshirt_id" {
+  value = try(module.example.tshirt_id, "")
 }

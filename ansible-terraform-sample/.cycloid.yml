@@ -1,83 +1,96 @@
----
-version: '2'
-name: ansible-terraform-sample
+version: '4'
+
+name: Ansible + Terraform
 canonical: ansible-terraform-sample
-description: 'bootstrap stack for terraform'
-# image: https://www.cycloid.io/themes/cycloid/images/owl_logo.png
+author: '($> .stack_author <$)'
+# Fill in the stack details.
+description: 'This stack contains automation to provision infrastructure with Terraform and configure it with Ansible.'
+image: https://raw.githubusercontent.com/cycloidio/bootstrap-stacks/master/ansible-terraform-sample/thumbnail.png
 keywords:
   - 'terraform'
-  - 'start'
-  - 'sample'
-  - '{{ stack_usecase }}'
-  - 'provider:aws'
-  - 'provider:azure'
-  - 'provider:gcp'
-template: true
-author: '{{stack_author}}'
+  - 'ansible'
+  - '($> .stack_usecase <$)'
 technologies:
   - technology: terraform
-    version: n/a
+    version: 1.8.2
+  - technology: ansible
+    version: 2.16.0
+template: true
 
+# Add use cases to the stack.
+# See: https://docs.cycloid.io/manage/pipeline/multi-use-case.html#multiple-use-case
 config:
-#  aws:
-#    name: 'aws'
-#    description: 'aws pipeline usecase'
-#    cloud_provider: aws
-#    pipeline:
-#      pipeline:
-#        path: 'pipeline/pipeline.yml'
-#      variables:
-#        path: 'pipeline/variables.sample.yml'
-#        destination: '($ project $)/pipeline/variables-($ environment $).yml'
-#    terraform:
-#      main:
-#        path: 'terraform/main.tf.sample'
-#        destination: '($ project $)/terraform/($ environment $)/main.tf'
-#
-#  azure:
-#    name: 'azure'
-#    description: 'azure pipeline usecase'
-#    cloud_provider: azure
-#    pipeline:
-#      pipeline:
-#        path: 'pipeline/pipeline.yml'
-#      variables:
-#        path: 'pipeline/variables.sample.yml'
-#        destination: '($ project $)/pipeline/variables-($ environment $).yml'
-#    terraform:
-#      main:
-#        path: 'terraform/main.tf.sample'
-#        destination: '($ project $)/terraform/($ environment $)/main.tf'
-#
-#  gcp:
-#    name: 'gcp'
-#    description: 'gcp pipeline usecase'
-#    cloud_provider: google
-#    pipeline:
-#      pipeline:
-#        path: 'pipeline/pipeline.yml'
-#      variables:
-#        path: 'pipeline/variables.sample.yml'
-#        destination: '($ project $)/pipeline/variables-($ environment $).yml'
-#    terraform:
-#      main:
-#        path: 'terraform/main.tf.sample'
-#        destination: '($ project $)/terraform/($ environment $)/main.tf'
-
-  raw:
-    name: 'raw'
-    description: 'Standalone pipeline usecase'
+  aws:
+    name: 'AWS'
+    description: 'Provision AWS resources with Terraform and configure them with Ansible (dynamic inventory via AWS tags).'
+    cloud_provider: aws
     pipeline:
       pipeline:
         path: 'pipeline/pipeline.yml'
       variables:
         path: 'pipeline/variables.sample.yml'
-        destination: '($ project $)/pipeline/variables-($ environment $).yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
     terraform:
       main:
         path: 'terraform/main.tf.sample'
-        destination: '($ project $)/terraform/($ environment $)/main.tf'
+        destination: '($ .config_root $)/terraform/main.tf'
     ansible:
       main:
         path: 'ansible/environments/variables.yml.sample'
-        destination: '($ project $)/ansible/environments/($ environment $)-variables.yml'
+        destination: '($ .config_root $)/ansible/environments/($ .environment $)-variables.yml'
+
+  azure:
+    name: 'Azure'
+    description: 'Provision Azure resources with Terraform and configure them with Ansible (dynamic inventory via Azure tags).'
+    cloud_provider: azurerm
+    pipeline:
+      pipeline:
+        path: 'pipeline/pipeline.yml'
+      variables:
+        path: 'pipeline/variables.sample.yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
+    terraform:
+      main:
+        path: 'terraform/main.tf.sample'
+        destination: '($ .config_root $)/terraform/main.tf'
+    ansible:
+      main:
+        path: 'ansible/environments/variables.yml.sample'
+        destination: '($ .config_root $)/ansible/environments/($ .environment $)-variables.yml'
+
+  gcp:
+    name: 'GCP'
+    description: 'Provision GCP resources with Terraform and configure them with Ansible (dynamic inventory via GCP labels).'
+    cloud_provider: google
+    pipeline:
+      pipeline:
+        path: 'pipeline/pipeline.yml'
+      variables:
+        path: 'pipeline/variables.sample.yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
+    terraform:
+      main:
+        path: 'terraform/main.tf.sample'
+        destination: '($ .config_root $)/terraform/main.tf'
+    ansible:
+      main:
+        path: 'ansible/environments/variables.yml.sample'
+        destination: '($ .config_root $)/ansible/environments/($ .environment $)-variables.yml'
+
+  vanilla:
+    name: 'Basic Ansible + Terraform'
+    description: 'Cloud-agnostic Terraform + Ansible sample running locally on the worker (no cloud provider).'
+    pipeline:
+      pipeline:
+        path: 'pipeline/pipeline.yml'
+      variables:
+        path: 'pipeline/variables.sample.yml'
+        destination: '($ .config_root $)/pipeline/variables.yml'
+    terraform:
+      main:
+        path: 'terraform/main.tf.sample'
+        destination: '($ .config_root $)/terraform/main.tf'
+    ansible:
+      main:
+        path: 'ansible/environments/variables.yml.sample'
+        destination: '($ .config_root $)/ansible/environments/($ .environment $)-variables.yml'
