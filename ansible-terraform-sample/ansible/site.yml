@@ -3,10 +3,10 @@
 # Use the cloud dynamic inventory provided by the Cycloid ansible-runner.
 # Instances are auto-grouped as tag_<key>_<value> based on their tags
 # (or labels for GCP, but the prefix stays "tag" — see cycloid-toolkit
-# files/ansible/etc/hosts-template). Here we select instances matching
-# both the project and env tags injected by Cycloid.
-- hosts: tag_project_{{ project }}:&tag_env_{{ env }}
-($>- else <$)
+# files/ansible/etc/hosts-template). We intersect all four Cycloid tags to
+# precisely target only the instances belonging to this component.
+- hosts: tag_organization_{{ organization }}:&tag_project_{{ project }}:&tag_env_{{ env }}:&tag_component_{{ component }}
+($>- else <$>
 # Vanilla use case: no cloud provider, run locally on the worker.
 - hosts: all
 ($>- end <$)
