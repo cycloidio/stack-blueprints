@@ -6,7 +6,7 @@
 # files/ansible/etc/hosts-template). We intersect all four Cycloid tags to
 # precisely target only the instances belonging to this component.
 - hosts: tag_organization_{{ organization }}:&tag_project_{{ project }}:&tag_env_{{ env }}:&tag_component_{{ component }}
-($>- else <$>
+($>- else <$)
 # Vanilla use case: no cloud provider, run locally on the worker.
 - hosts: all
 ($>- end <$)
